@@ -1,0 +1,5 @@
+*.fit
+*.png
+*.json
+.ipynb_checkpoints/
+*.ipynb
