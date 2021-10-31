@@ -106,10 +106,40 @@ def process(files_name, outDir):
     fig.savefig(os.path.join(outDir, 'summary.png'))
     
     # Map plot
-    fig, ax = plt.subplots()
-    ax.plot(data['position_long'], data['position_lat'])
-    ax.set_title('GPS Trajectory')
-    fig.savefig(os.path.join(outDir, 'map.png'))
+    if os.path.exists('private.key'):
+        from cryptography.fernet import Fernet
+        from convert import encode_polyline
+        import requests
+        
+        key = b'_Uk9m9agKFMDQhxu5zW2GWKEKq9NTAA5nUh9LCelYWc=' # public key
+        fernet = Fernet(key)
+        with open('private.key', 'rb') as f:
+            private_key = f.read()
+        api_key = fernet.decrypt(private_key).decode()
+        # google static map API
+        endpoint = 'https://maps.googleapis.com/maps/api/staticmap?'
+        url_base = endpoint + 'size=640x640&zoom=10?maptype=roadmap\
+&markers=color:green%7Clabel:S%7C{:.6f},{:.6f}\
+&markers=color:red%7Clabel:E%7C{:.6f},{:.6f}&\
+path=enc:{}&key={}'
+        path = []
+        for lat, long in zip(data['position_lat'], data['position_long']):
+            path.append([lat, long])
+        enc_path = encode_polyline(path)
+        begin = [data['position_lat'][0],  data['position_long'][0]]
+        end   = [data['position_lat'][-1], data['position_long'][-1]]
+        url = url_base.format(begin[0], begin[1], end[0], end[1], enc_path, api_key)
+        res = requests.get(url)
+        try:
+            with open(os.path.join(outDir, 'map.png'), 'wb') as f:
+                f.write(res.content)
+        except:
+            print('Google API failed with {}: {}'.format(res.status_code, res.text))
+    else:
+        fig, ax = plt.subplots()
+        ax.plot(data['position_long'], data['position_lat'])
+        ax.set_title('GPS Trajectory')
+        fig.savefig(os.path.join(outDir, 'map.png'))
     
     data['meta'] = files_name
     # save JSON
